@@ -7,7 +7,13 @@ version 'v1.0.0'
 url 'https://github.com/mythicrp/mythic_engine'
 
 client_scripts {
-	'client/main.lua',
+	'sh_config.lua',
+	'cl_main.lua',
+	'cl_keys.lua',
+}
+
+server_scripts {
+	'sv_keys.lua',
 }
 
 dependencies {
@@ -16,9 +22,18 @@ dependencies {
 }
 
 exports {
+	-- Lockpick Timers
+	'GetLockpickTimers',
+
+	-- Engine
 	'Hotwire',
 	'IsCarHotwired',
 	'OutOfFuel',
 	'Refueled',
 	'IsVehFueled',
+
+	--Keys
+	'HasKeys',
+	'GetKeys',
+	'TakeKeys',
 }

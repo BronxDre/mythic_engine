@@ -10,6 +10,32 @@ local isAttemptingHotwire = false
 local canSearchForKey = true
 local isSearching = false
 
+function Print3DText(coords, text)
+    local onScreen, _x, _y = World3dToScreen2d(coords.x, coords.y, coords.z)
+
+    if onScreen then
+        local px, py, pz = table.unpack(GetGameplayCamCoords())
+        local dist = #(vector3(px, py, pz) - vector3(coords.x, coords.y, coords.z))    
+        local scale = (1 / dist) * 20
+        local fov = (1 / GetGameplayCamFov()) * 100
+        local scale = scale * fov   
+        SetTextScale(0.35, 0.35)
+        SetTextFont(4)
+        SetTextProportional(1)
+        SetTextColour(250, 250, 250, 255)		-- You can change the text color here
+        SetTextDropshadow(1, 1, 1, 1, 255)
+        SetTextEdge(2, 0, 0, 0, 150)
+        SetTextDropShadow()
+        SetTextOutline()
+        SetTextEntry("STRING")
+        SetTextCentre(1)
+        AddTextComponentString(text)
+        SetDrawOrigin(coords.x, coords.y, coords.z, 0)
+        DrawText(0.0, 0.0)
+        ClearDrawOrigin()
+    end
+end
+
 RegisterNetEvent('mythic_engine:client:PlayerEnteringVeh')
 AddEventHandler('mythic_engine:client:PlayerEnteringVeh', function(veh)
     Citizen.CreateThread(function() 
@@ -40,7 +66,7 @@ AddEventHandler('mythic_engine:client:StartEngineListen', function()
                 elseif IsControlJustReleased(1, HotwireKey) and canHotwire and canAttemptHotwire and not isSearching then
                     canAttemptHotwire = false
                     isAttemptingHotwire = true
-                    AttemptHotwire(GetVehiclePedIsIn(PlayerPedId()), 65, 25)
+                    AttemptHotwire(GetVehiclePedIsIn(PlayerPedId()), 65, (Config.Stages + 1), 25)
                 elseif IsControlJustReleased(1, SearchKey) and canHotwire and canSearchForKey and not isAttemptingHotwire then
                     canSearchForKey = false
                     isSearching = true
@@ -53,14 +79,14 @@ AddEventHandler('mythic_engine:client:StartEngineListen', function()
                     table.insert(vehicles, {
                         GetVehiclePedIsTryingToEnter(ped),
                         IsVehicleEngineOn(GetVehiclePedIsTryingToEnter(ped)),
-                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or exports['mythic_keys']:HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
+                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
                         true,
                     })
                 elseif IsPedInAnyVehicle(ped, false) and not table.contains(vehicles, GetVehiclePedIsIn(ped, false)) then
                     table.insert(vehicles, {
                         GetVehiclePedIsIn(ped, false),
                         IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)),
-                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or exports['mythic_keys']:HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
+                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
                         true,
                     })
                 end
@@ -89,25 +115,25 @@ AddEventHandler('mythic_engine:client:StartEngineListen', function()
                             if IsPedInAnyVehicle(ped) and canAttemptHotwire and canSearchForKey then
                                 if GetVehiclePedIsIn(ped) == vehicle[1] then
                                     canHotwire = false
-                                    local offCoords = GetOffsetFromEntityInWorldCoords(vehicle[1], 0.0, 0.8, 1.0)
+                                    local offCoords =  GetOffsetFromEntityInWorldCoords(vehicle[1], 0.0, 2.0, 1.0)
                                     if not vehicle[2] and not vehicle[3] then
                                         canHotwire = true
                                         if canAttemptHotwire and canSearchForKey then
-                                            exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire ~c~| ~INPUT_THROW_GRENADE~ ~s~Search For Key')
-                                            --Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire ~c~| ~c~[G] ~s~Search For Key')
+                                            --exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire ~c~| ~INPUT_THROW_GRENADE~ ~s~Search For Key')
+                                            Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire ~c~| ~c~[G] ~s~Search For Key')
                                         elseif canAttemptHotwire and not canSearchForKey then
-                                            exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire')
-                                            --Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire')
+                                            --exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire')
+                                            Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire')
                                         elseif canSearchForKey and not canAttemptHotwire then
-                                            exports['mythic_base']:PrintHelpText('~INPUT_THROW_GRENADE~ Search For Key')
-                                            --Print3DText(offCoords, '~c~[G] ~s~Search For Key')
+                                            --exports['mythic_base']:PrintHelpText('~INPUT_THROW_GRENADE~ Search For Key')
+                                            Print3DText(offCoords, '~c~[G] ~s~Search For Key')
                                         end
                                     elseif not vehicle[2] and vehicle[3] and vehicle[4] then
-                                        exports['mythic_base']:PrintHelpText('~INPUT_DROP_WEAPON~ Turn On Engine')
-                                        --Print3DText(offCoords, '~c~[F9] ~s~Turn On Engine')
+                                        --exports['mythic_base']:PrintHelpText('~INPUT_DROP_WEAPON~ Turn On Engine')
+                                        Print3DText(offCoords, '~c~[F9] ~s~Turn On Engine')
                                     elseif not vehicle[4] then
-                                        exports['mythic_base']:PrintHelpText('Vehicle Out Of Fuel')
-                                        --Print3DText(offCoords, 'Vehicle Out Of Fuel')
+                                        --exports['mythic_base']:PrintHelpText('Vehicle Out Of Fuel')
+                                        Print3DText(offCoords, 'Vehicle Out Of Fuel')
                                     end
                                 end
                             end
@@ -130,44 +156,31 @@ AddEventHandler('mythic_engine:client:ForceHotWired', function()
     end
 end)
 
-function AttemptHotwire(veh, success, alarm)
-    local alarmRoll = math.random(100)
-    local stageTimers = { 10000, 20000, 30000, 40000 }
-    local totalTime = 0
-    for i = 1, #stageTimers, 1 do
-        totalTime = totalTime + stageTimers[i]
-    end
-    if alarmRoll <= alarm then
-        SetVehicleAlarm(veh, true)
-        SetVehicleAlarmTimeLeft(veh, totalTime)
-        StartVehicleAlarm(veh)
-    end
+function AttemptHotwire(veh, success, stages, alarm)
+    local baseTimer = Config.LockpickTimers[GetVehicleClass(veh)]
+    if baseTimer ~= nil then
+        local totalTime = baseTimer * stages
 
+        local alarmRoll = math.random(100)
+        if alarmRoll <= alarm then
+            SetVehicleAlarm(veh, true)
+            SetVehicleAlarmTimeLeft(veh, totalTime)
+            StartVehicleAlarm(veh)
+        end
     
-    exports['mythic_progbar']:Progress({
-        name = "lockpick_action",
-        duration = stageTimers[1],
-        label = "Hot Wiring - Stage 1",
-        useWhileDead = false,
-        canCancel = true,
-        controlDisables = {
-            disableMovement = true,
-            disableCarMovement = true,
-            disableMouse = false,
-            disableCombat = true,
-        },
-        animation = {
-            animDict = "anim@amb@clubhouse@tutorial@bkr_tut_ig3@",
-            anim = "machinic_loop_mechandplayer",
-            flags = 49,
-        },
-    }, function(status)
-        isAttemptingHotwire = false
-        if not status then
+        local wasCancelled = false
+        for i = 1, stages, 1 do
+            if wasCancelled then
+                isAttemptingHotwire = false
+                canAttemptHotwire = true
+                exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
+                return
+            end
+        
             exports['mythic_progbar']:Progress({
                 name = "lockpick_action",
-                duration = stageTimers[2],
-                label = "Hot Wiring - Stage 2",
+                duration = (baseTimer * i),
+                label = "Hot Wiring - Stage 1",
                 useWhileDead = false,
                 canCancel = true,
                 controlDisables = {
@@ -182,76 +195,23 @@ function AttemptHotwire(veh, success, alarm)
                     flags = 49,
                 },
             }, function(status)
-                if not status then
-                    exports['mythic_progbar']:Progress({
-                        name = "lockpick_action",
-                        duration = stageTimers[3],
-                        label = "Hot Wiring - Stage 3",
-                        useWhileDead = false,
-                        canCancel = true,
-                        controlDisables = {
-                            disableMovement = true,
-                            disableCarMovement = true,
-                            disableMouse = false,
-                            disableCombat = true,
-                        },
-                        animation = {
-                            animDict = "anim@amb@clubhouse@tutorial@bkr_tut_ig3@",
-                            anim = "machinic_loop_mechandplayer",
-                            flags = 49,
-                        },
-                    }, function(status)
-                        if not status then
-                            exports['mythic_progbar']:Progress({
-                                name = "lockpick_action",
-                                duration = stageTimers[4],
-                                label = "Hot Wiring - Stage 4",
-                                useWhileDead = false,
-                                canCancel = true,
-                                controlDisables = {
-                                    disableMovement = true,
-                                    disableCarMovement = true,
-                                    disableMouse = false,
-                                    disableCombat = true,
-                                },
-                                animation = {
-                                    animDict = "anim@amb@clubhouse@tutorial@bkr_tut_ig3@",
-                                    anim = "machinic_loop_mechandplayer",
-                                    flags = 49,
-                                },
-                            }, function(status)
-                                isAttemptingHotwire = false
-                                if not status then
-                                    local successRoll = math.random(100)
-                                    if successRoll <= success then
-                                        Hotwire(veh)
-                                        exports['mythic_notify']:SendAlert('success', 'Vehicle Hot Wired')
-                                    else
-                                        exports['mythic_notify']:SendAlert('error', 'Hot Wiring Failed')
-                                    end
-                                else
-                                    canAttemptHotwire = true
-                                    exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
-                                end
-                            end)
-                        else
-                            isAttemptingHotwire = false
-                            canAttemptHotwire = true
-                            exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
-                        end
-                    end)
-                else
-                    isAttemptingHotwire = false
-                    canAttemptHotwire = true
-                    exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
-                end
+                wasCancelled = status
             end)
-        else
-            isAttemptingHotwire = false
-            canAttemptHotwire = true
-            exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
         end
-    end)
+        
+        if not wasCancelled then
+            local successRoll = math.random(100)
+            if successRoll <= success then
+                Hotwire(veh)
+                exports['mythic_notify']:SendAlert('success', 'Vehicle Hot Wired')
+            else
+                exports['mythic_notify']:SendAlert('error', 'Hot Wiring Failed')
+            end
+        end
+    else
+        exports['mythic_notify']:SendAlert('error', 'Cannot Hotwire This Vehicle')
+    end
+    
 end
 
 function SearchForKey(veh, success, alarm)
