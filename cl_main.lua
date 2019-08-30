@@ -10,6 +10,8 @@ local isAttemptingHotwire = false
 local canSearchForKey = true
 local isSearching = false
 
+local checkedVeh = nil
+
 function Print3DText(coords, text)
     local onScreen, _x, _y = World3dToScreen2d(coords.x, coords.y, coords.z)
 
@@ -36,6 +38,62 @@ function Print3DText(coords, text)
     end
 end
 
+function CheckThisVehicle()
+    local player = PlayerPedId()
+    local veh = GetVehiclePedIsIn(player, true)
+
+    if veh == 0 then
+        veh = GetVehiclePedIsTryingToEnter(player)
+    end
+    local plate = GetVehicleNumberPlateText(veh)
+
+    if GetSeatPedIsTryingToEnter(player) == -1 and not table.contains(vehicles, veh) then
+        local driver = GetPedInVehicleSeat(veh, -1)
+        -- Someone That's Not The Player In The Vehicle
+        if driver ~= 0 and driver ~= player then
+            if IsPedDeadOrDying(driver, true) then
+                exports['mythic_notify']:SendAlert('inform', 'You Grabbed The Keys Off A Dead Person, You Sick Fuck')
+                table.insert(vehicles, {
+                    veh,
+                    IsVehicleEngineOn(veh),
+                    HasKeys(plate),
+                    true,
+                })
+            else
+                SetVehicleEngineOn(veh, false, false, true)
+                exports['mythic_notify']:SendAlert('inform', 'The Person Took The Keys, LUL')
+                table.insert(vehicles, {
+                    veh,
+                    false,
+                    false,
+                    true,
+                })
+            end
+        else
+            -- Nobody In Vehicle
+            table.insert(vehicles, {
+                veh,
+                IsVehicleEngineOn(veh),
+                (IsVehicleEngineOn(veh) or HasKeys(plate)),
+                true,
+            })
+
+            if IsVehicleEngineOn(veh) then
+                GetKeys(plate, true)
+            end
+        end
+    elseif IsPedInAnyVehicle(player, false) and not table.contains(vehicles, veh) then
+        table.insert(vehicles, {
+            veh,
+            IsVehicleEngineOn(veh),
+            HasKeys(plate),
+            true,
+        })
+    end
+
+    checkedVeh = veh
+end
+
 RegisterNetEvent('mythic_engine:client:PlayerEnteringVeh')
 AddEventHandler('mythic_engine:client:PlayerEnteringVeh', function(veh)
     Citizen.CreateThread(function() 
@@ -45,105 +103,87 @@ AddEventHandler('mythic_engine:client:PlayerEnteringVeh', function(veh)
             SetVehicleNeedsToBeHotwired(veh, false)
         end
     end)
-end)
 
-RegisterNetEvent('mythic_engine:client:StartEngineListen')
-AddEventHandler('mythic_engine:client:StartEngineListen', function()
     Citizen.CreateThread(function()
         canAttemptHotwire = true
         isAttemptingHotwire = false
         canSearchForKey = true
         isSearching = false
 
-        while IsPedInAnyVehicle(PlayerPedId()) do
-            Citizen.Wait(0)
-            if GetPedInVehicleSeat(GetVehiclePedIsIn(PlayerPedId()), -1) == PlayerPedId() then
-                if IsControlJustReleased(1, EngineKey) then
-                    if not isToggling then
-                        isToggling = true
-                        SetEngineState()
-                    end
-                elseif IsControlJustReleased(1, HotwireKey) and canHotwire and canAttemptHotwire and not isSearching then
-                    canAttemptHotwire = false
-                    isAttemptingHotwire = true
-                    AttemptHotwire(GetVehiclePedIsIn(PlayerPedId()), 65, (Config.Stages + 1), 25)
-                elseif IsControlJustReleased(1, SearchKey) and canHotwire and canSearchForKey and not isAttemptingHotwire then
-                    canSearchForKey = false
-                    isSearching = true
-                    SearchForKey(GetVehiclePedIsIn(PlayerPedId()), 35, 25)
-                end
-                
-                local ped = PlayerPedId()
+        local player = PlayerPedId()
 
-                if GetSeatPedIsTryingToEnter(ped) == -1 and not table.contains(vehicles, GetVehiclePedIsTryingToEnter(ped)) then
-                    table.insert(vehicles, {
-                        GetVehiclePedIsTryingToEnter(ped),
-                        IsVehicleEngineOn(GetVehiclePedIsTryingToEnter(ped)),
-                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
-                        true,
-                    })
-                elseif IsPedInAnyVehicle(ped, false) and not table.contains(vehicles, GetVehiclePedIsIn(ped, false)) then
-                    table.insert(vehicles, {
-                        GetVehiclePedIsIn(ped, false),
-                        IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)),
-                        (IsVehicleEngineOn(GetVehiclePedIsIn(ped, false)) or HasKeys(GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)))),
-                        true,
-                    })
-                end
+        CheckThisVehicle()
 
-                if DoesEntityExist(ped) and IsPedInAnyVehicle(ped, false) and IsControlPressed(2, 75) and not IsEntityDead(ped) and not IsPauseMenuActive() then
-                    Citizen.Wait(150)
-                    if DoesEntityExist(ped) and IsPedInAnyVehicle(ped, false) and IsControlPressed(2, 75) and not IsEntityDead(ped) and not IsPauseMenuActive() then
-                        local veh = GetVehiclePedIsIn(ped, false)
-                        TaskLeaveVehicle(ped, veh, 256)
-                    end
-                end
-
-                for i, vehicle in ipairs(vehicles) do
-                    if DoesEntityExist(vehicle[1]) then
-                        if (GetPedInVehicleSeat(vehicle[1], -1) == ped) or IsVehicleSeatFree(vehicle[1], -1) then
-                            SetVehicleEngineOn(vehicle[1], vehicle[2], false, false)
-                            SetVehicleJetEngineOn(vehicle[1], vehicle[2])
-                            if not IsPedInAnyVehicle(ped, false) or (IsPedInAnyVehicle(ped, false) and vehicle[1]~= GetVehiclePedIsIn(ped, false)) then
-                                if IsThisModelAHeli(GetEntityModel(vehicle[1])) or IsThisModelAPlane(GetEntityModel(vehicle[1])) then
-                                    if vehicle[2] then
-                                        SetHeliBladesFullSpeed(vehicle[1])
-                                    end
-                                end
-                            end
-
-                            if IsPedInAnyVehicle(ped) and canAttemptHotwire and canSearchForKey then
-                                if GetVehiclePedIsIn(ped) == vehicle[1] then
-                                    canHotwire = false
-                                    local offCoords =  GetOffsetFromEntityInWorldCoords(vehicle[1], 0.0, 2.0, 1.0)
-                                    if not vehicle[2] and not vehicle[3] then
-                                        canHotwire = true
-                                        if canAttemptHotwire and canSearchForKey then
-                                            --exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire ~c~| ~INPUT_THROW_GRENADE~ ~s~Search For Key')
-                                            Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire ~c~| ~c~[G] ~s~Search For Key')
-                                        elseif canAttemptHotwire and not canSearchForKey then
-                                            --exports['mythic_base']:PrintHelpText('~INPUT_MULTIPLAYER_INFO~ Attempt Hot Wire')
-                                            Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire')
-                                        elseif canSearchForKey and not canAttemptHotwire then
-                                            --exports['mythic_base']:PrintHelpText('~INPUT_THROW_GRENADE~ Search For Key')
-                                            Print3DText(offCoords, '~c~[G] ~s~Search For Key')
-                                        end
-                                    elseif not vehicle[2] and vehicle[3] and vehicle[4] then
-                                        --exports['mythic_base']:PrintHelpText('~INPUT_DROP_WEAPON~ Turn On Engine')
-                                        Print3DText(offCoords, '~c~[F9] ~s~Turn On Engine')
-                                    elseif not vehicle[4] then
-                                        --exports['mythic_base']:PrintHelpText('Vehicle Out Of Fuel')
-                                        Print3DText(offCoords, 'Vehicle Out Of Fuel')
-                                    end
-                                end
-                            end
+        while IsPedInAnyVehicle(player, true) or GetVehiclePedIsTryingToEnter(player) ~= 0 do
+            Citizen.Wait(1)
+            if checkedVeh ~= nil then
+                if GetPedInVehicleSeat(GetVehiclePedIsIn(player), -1) == player then
+                    if IsControlJustReleased(1, EngineKey) then
+                        if not isToggling then
+                            isToggling = true
+                            SetEngineState()
                         end
-                    else
-                        table.remove(vehicles, i)
+                    elseif IsControlJustReleased(1, HotwireKey) and canHotwire and canAttemptHotwire and not isSearching then
+                        canAttemptHotwire = false
+                        isAttemptingHotwire = true
+                        AttemptHotwire(GetVehiclePedIsIn(player), 65, (Config.Stages + 1), 25)
+                    elseif IsControlJustReleased(1, SearchKey) and canHotwire and canSearchForKey and not isAttemptingHotwire then
+                        canSearchForKey = false
+                        isSearching = true
+                        SearchForKey(GetVehiclePedIsIn(player), 35, 25)
+                    end --here
+
+                    if DoesEntityExist(player) and IsPedInAnyVehicle(player, false) and IsControlPressed(2, 75) and not IsEntityDead(player) and not IsPauseMenuActive() then
+                        Citizen.Wait(150)
+                        if DoesEntityExist(player) and IsPedInAnyVehicle(player, false) and IsControlPressed(2, 75) and not IsEntityDead(player) and not IsPauseMenuActive() then
+                            local veh = GetVehiclePedIsIn(player, false)
+                            TaskLeaveVehicle(player, veh, 256)
+                        end
+                    end
+
+                    for i, vehicle in ipairs(vehicles) do
+                        if DoesEntityExist(vehicle[1]) then
+                            if (GetPedInVehicleSeat(vehicle[1], -1) == player) or IsVehicleSeatFree(vehicle[1], -1) then
+                                SetVehicleEngineOn(vehicle[1], vehicle[2], false, false)
+                                SetVehicleJetEngineOn(vehicle[1], vehicle[2])
+                                if not IsPedInAnyVehicle(player, false) or (IsPedInAnyVehicle(player, false) and vehicle[1]~= GetVehiclePedIsIn(player, false)) then
+                                    if IsThisModelAHeli(GetEntityModel(vehicle[1])) or IsThisModelAPlane(GetEntityModel(vehicle[1])) then
+                                        if vehicle[2] then
+                                            SetHeliBladesFullSpeed(vehicle[1])
+                                        end
+                                    end
+                                end
+
+                                if IsPedInAnyVehicle(player) and canAttemptHotwire and canSearchForKey then
+                                    if GetVehiclePedIsIn(player) == vehicle[1] then
+                                        canHotwire = false
+                                        local offCoords =  GetOffsetFromEntityInWorldCoords(vehicle[1], 0.0, 2.0, 1.0)
+                                        if not vehicle[3] then
+                                            canHotwire = true
+                                            if canAttemptHotwire and canSearchForKey then
+                                                Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire ~c~| ~c~[G] ~s~Search For Key')
+                                            elseif canAttemptHotwire and not canSearchForKey then
+                                                Print3DText(offCoords, '~c~[Z] ~s~Attempt Hot Wire')
+                                            elseif canSearchForKey and not canAttemptHotwire then
+                                                Print3DText(offCoords, '~c~[G] ~s~Search For Key')
+                                            end
+                                        elseif not vehicle[2] and vehicle[3] and vehicle[4] then
+                                            Print3DText(offCoords, '~c~[F9] ~s~Turn On Engine')
+                                        elseif not vehicle[4] then
+                                            Print3DText(offCoords, 'Vehicle Out Of Fuel')
+                                        end
+                                    end
+                                end
+                            end
+                        else
+                            table.remove(vehicles, i)
+                        end
                     end
                 end
             end
         end
+
+        checkedVeh = nil
     end)
 end)
 
@@ -169,13 +209,11 @@ function AttemptHotwire(veh, success, stages, alarm)
         end
     
         local wasCancelled = false
-        local allStagesComplete = false
         for i = 1, stages, 1 do
             local stageComplete = false
             if wasCancelled then
                 isAttemptingHotwire = false
                 canAttemptHotwire = true
-                allStagesComplete = true
                 exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
                 return
             end
@@ -206,18 +244,16 @@ function AttemptHotwire(veh, success, stages, alarm)
                 SetVehicleEngineOn(veh, false, true, true)
                 Citizen.Wait(1)
             end
-
-            if i == stages then
-                allStagesComplete = true
-            end
         end
         
         if not wasCancelled then
             local successRoll = math.random(100)
             if successRoll <= success then
                 Hotwire(veh)
+                isAttemptingHotwire = false
                 exports['mythic_notify']:SendAlert('success', 'Vehicle Hot Wired')
             else
+                isAttemptingHotwire = false
                 exports['mythic_notify']:SendAlert('error', 'Hot Wiring Failed')
             end
         end
@@ -348,6 +384,9 @@ function Hotwire(veh)
         if vehicle[1] == veh then
             canAttemptHotwire = false
             canSearchForKey = false
+            isSearching = false
+            isAttemptingHotwire = false
+            GetKeys(GetVehicleNumberPlateText(veh), true)
             vehicle[2] = true
             vehicle[3] = true
         end

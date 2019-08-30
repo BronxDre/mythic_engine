@@ -8,9 +8,13 @@ function HasKeys(license)
     return Keys[license] ~= nil
 end
 
-function GetKeys(license)
+function GetKeys(license, hideAlert)
     if license == nil then return end
-    exports['mythic_notify']:SendAlert('inform', 'You Recieved Keys To A Vehicle')
+
+    if not hideAlert then
+        exports['mythic_notify']:SendAlert('inform', 'You Recieved Keys To A Vehicle')
+    end
+    
     Keys[license] = true
 end
 
@@ -20,8 +24,8 @@ function TakeKeys(license)
     Keys[license] = nil
 end
 
-RegisterNetEvent('mythic_keys:client:SyncLocks')
-AddEventHandler('mythic_keys:client:SyncLocks', function(cars)
+RegisterNetEvent('mythic_engine:client:SyncLocks')
+AddEventHandler('mythic_engine:client:SyncLocks', function(cars)
     LockedCars = cars
 end)
 
@@ -77,7 +81,7 @@ Citizen.CreateThread(function()
                     if LockedCars[plate] then
                         LockedCars[plate] = nil
                         SetVehicleDoorsLocked(veh, 1)
-                        TriggerServerEvent('mythic_keys:server:UpdateVehLock', plate, nil)
+                        TriggerServerEvent('mythic_engine:server:UpdateVehLock', plate, nil)
                         exports['mythic_notify']:SendAlert('inform', 'Vehicle Unlocked')
                         
                         Citizen.CreateThread(function()
@@ -92,7 +96,7 @@ Citizen.CreateThread(function()
                     else
                         LockedCars[plate] = true
                         SetVehicleDoorsLocked(veh, 2)
-                        TriggerServerEvent('mythic_keys:server:UpdateVehLock', plate, true)
+                        TriggerServerEvent('mythic_engine:server:UpdateVehLock', plate, true)
                         exports['mythic_notify']:SendAlert('inform', 'Vehicle Locked')
                         Citizen.CreateThread(function()
                             SetVehicleLights(veh, 2)
