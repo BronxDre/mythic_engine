@@ -169,10 +169,13 @@ function AttemptHotwire(veh, success, stages, alarm)
         end
     
         local wasCancelled = false
+        local allStagesComplete = false
         for i = 1, stages, 1 do
+            local stageComplete = false
             if wasCancelled then
                 isAttemptingHotwire = false
                 canAttemptHotwire = true
+                allStagesComplete = true
                 exports['mythic_notify']:SendAlert('error', 'Hot Wiring Cancelled')
                 return
             end
@@ -180,7 +183,7 @@ function AttemptHotwire(veh, success, stages, alarm)
             exports['mythic_progbar']:Progress({
                 name = "lockpick_action",
                 duration = (baseTimer * i),
-                label = "Hot Wiring - Stage 1",
+                label = "Hot Wiring - Stage " .. i,
                 useWhileDead = false,
                 canCancel = true,
                 controlDisables = {
@@ -196,7 +199,17 @@ function AttemptHotwire(veh, success, stages, alarm)
                 },
             }, function(status)
                 wasCancelled = status
+                stageComplete = true
             end)
+
+            while not stageComplete do
+                SetVehicleEngineOn(veh, false, true, true)
+                Citizen.Wait(1)
+            end
+
+            if i == stages then
+                allStagesComplete = true
+            end
         end
         
         if not wasCancelled then
